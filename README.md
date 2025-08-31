@@ -29,11 +29,8 @@
 3. output 폴더에서 seat_drawer_result.csv 확인 및 검증
 4. 입력값, 결과값 무결성 검증 위해 해시값 및 파일 백업 필요
 
-## 이하는 2023 ver.
-1. 입력받은 설문 시트 그대로 csv로 출력 후 .\input\input_data.csv에 저장. 
-2. ``python seat.py``  실행
-3. output 폴더에서 seat_unmatched_student.csv와 seat_unmatched_seat.csv 확인하여 미반영된 사람들 수동 배치하여 seat_result.csv에 업데이트
-4. output 폴더의 seat_result.csv를 input 폴더로 복사
-5. ``python drawer.py`` 실행
-6. 엑셀에서 ``.\output\seat_drawer_result.csv`` 불러와서 결과 확인
+## 미응답자 추가 배정 (라이브 방송 없이 처리하기 위해 입력 파일 기반 seed 고정)
+1. 입력받은 설문 시트 그대로 csv로 출력 후 .\input\input_data.csv에 저장. (이미 배정한 응답도 포함)
+2. ``python run.py --mode=add --expected=2``  실행 (expected에는 추가배정해야하는 인원 입력)
+3. output 폴더에서 seat_drawer_result_additional.csv 확인 및 검증
 

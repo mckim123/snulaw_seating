@@ -1,5 +1,7 @@
 import csv
 import random
+import argparse
+import hashlib
 
 ## [2024.8.] 남는좌석 배치시 학년별 좌석에 우선적으로 배치. 2024-1 민원사항 반영.
 STD_TYPE_TO_SEAT_TYPE = {
@@ -181,6 +183,12 @@ def std_2nd_alloc(student, seatlist):
     ## [2025.8.] 좌석 배정 시 이전 단계 잔여 좌석도 활용하되, 학년별 좌석에 우선적으로 배치하도록 로직 수정
     return std_alloc(student, seatlist, [], ['3학년', '졸업생', '2학년'])
 
+## [2025.8.] 추가 배정 시 생방송 진행하는 대신 input file 기반 시드 고정
+def get_seed_from_file(filename):
+    """input_data.csv 내용을 기반으로 reproducible seed 생성"""
+    with open(filename, 'rb') as f:
+        content = f.read()
+    return int(hashlib.sha256(content).hexdigest(), 16) % (2**32)
 
 def main():
     # if __name__=="__main__":
@@ -251,5 +259,111 @@ def main():
     print("[+]남은 좌석 리스트 저장 경로: ./output/seat_unmatched_seat.csv")
 
 
+def main_additional(infile_std, infile_result, infile_seat_unmatched, expected=None):
+    # 전체 학생 목록
+    student_all = csv_to_dict_std(infile_std)
+
+    # 이미 배정된 학생 목록
+    assigned = set()
+    with open(infile_result, mode='rt', encoding='UTF-8') as file:
+        next(file)  # header skip
+        for line in file:
+            parts = line.strip().split(",")
+            if len(parts) >= 2:
+                name = parts[0]
+                id2 = parts[1]   # seat_result.csv에는 이미 학번 뒷 2자리만 남음
+                key = name + "_" + id2
+                assigned.add(key)
+
+    # 배정 안 된 학생만 추출
+    # student_all의 key는 "이름_전체학번"이라서 뒷자리만 잘라서 비교해야 함
+    unassigned_students = {
+        k: v for k, v in student_all.items()
+        if (k.split("_")[0] + "_" + k.split("_")[1][-2:]) not in assigned
+    }
+
+    # 검증
+    if expected is not None and expected != len(unassigned_students):
+        raise ValueError(f"[!] 예상 추가 배정자 수 {expected}명과 실제 {len(unassigned_students)}명이 다릅니다.")
+
+    # 좌석 불러오기 (unmatched seat 파일)
+    seatlist_open = []
+    with open(infile_seat_unmatched, mode='rt', encoding='UTF-8') as file:
+        next(file)
+        for row in csv.reader(file):
+            if row[3] == 'open':
+                seatlist_open.append(row)
+
+    # seed 고정
+    seed = get_seed_from_file(infile_std)
+    random.seed(seed)
+
+    # 배정 실행
+    result_additional_2nd = std_2nd_alloc(unassigned_students, seatlist_open)
+    result_additional_unmatched = std_alloc_unmatched(unassigned_students, seatlist_open)
+
+    result_additional = {}  # 최종 결과
+    result_additional.update(result_additional_2nd)
+    result_additional.update(result_additional_unmatched)
+
+    # 로그 출력
+    print("[+] 추가 배정 결과:")
+    for key, seat in result_additional.items():
+        print(f" - {key}: {seat[1]} {seat[2]}번")
+
+    # 추가 배정 결과 저장 (별도 파일)
+    with open('./output/seat_result_additional.csv', mode='wt', encoding='UTF-8') as file:
+        file.write("이름,학번뒤2자리,열람실,좌석번호\n")
+        for key, value in result_additional.items():
+            name = key.split("_")[0]
+            id = key.split("_")[1][-2:]
+            room = value[1]
+            roomid = value[2]
+            file.write(name + "," + id + "," + room + "," + roomid + "\n")
+    print("[+] 추가 배치결과 저장 경로: ./output/seat_result_additional.csv")
+
+    # seat_result.csv 에 append
+    with open('./output/seat_result.csv', mode='at', encoding='UTF-8') as file:
+        for key, value in result_additional.items():
+            name = key.split("_")[0]
+            id = key.split("_")[1][-2:]
+            room = value[1]
+            roomid = value[2]
+            file.write(name + "," + id + "," + room + "," + roomid + "\n")
+    print("[+] seat_result.csv 갱신 완료")
+
+    # seat_unmatched_seat.csv 업데이트
+    # → 원본 읽어서 result_additional 에 배정된 좌석 제거 후 다시 저장
+    updated_seats = []
+    with open('./output/seat_unmatched_seat.csv', mode='rt', encoding='UTF-8') as file:
+        for row in csv.reader(file):
+            updated_seats.append(row)
+
+    # 배정된 좌석 key = (열람실, 좌석번호)
+    allocated_keys = {(v[1], v[2]) for v in result_additional.values()}
+    updated_seats = [s for s in updated_seats if (s[1], s[2]) not in allocated_keys]
+
+    with open('./output/seat_unmatched_seat.csv', mode='wt', encoding='UTF-8', newline='') as file:
+        writer = csv.writer(file)
+        for s in updated_seats:
+            writer.writerow(s)
+    print("[+] seat_unmatched_seat.csv 갱신 완료")
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["normal", "add"], default="normal")
+    parser.add_argument("--expected", type=int, default=None, help="추가 배정 예상 인원")
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    infile_std = './input/input_data.csv'
+    infile_seat = './input/seatlist.csv'
+
+    if args.mode == "normal":
+        main()
+    else:
+        main_additional(infile_std,
+                        './output/seat_result.csv',
+                        './output/seat_unmatched_seat.csv',
+                        expected=args.expected)
