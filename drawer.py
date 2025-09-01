@@ -13,7 +13,7 @@ DEFAULT_INDICES = {
     "hk": 39,   # 해동(401호) 칸막이 39~54
     "fa": 55,   # 404호 - 404(A) 55~66
     "fb": 1,    # 404호 - 404(B) 1~150
-    "ys": 1,    # 역사관 - 국산 1~34
+    "ys": 1,    # 역사관 - 서암 1~34
     "gs": 81,   # 국산 - 81~162
 }
 
@@ -58,10 +58,11 @@ def load_indices_from_existing(file_path):
                 elif locker_room == "404(B)":
                     indices["fb"] = max(indices["fb"], locker_num + 1)
                 elif locker_room == "국산":
+                    if 81 <= locker_num <= 162:
+                        indices["gs"] = max(indices["gs"], locker_num + 1)
+                elif locker_room == "서암":
                     if locker_num <= 34:  # 역사관 평상
                         indices["ys"] = max(indices["ys"], locker_num + 1)
-                    else:
-                        indices["gs"] = max(indices["gs"], locker_num + 1)
     except FileNotFoundError:
         print(f"[!] 기존 파일 {file_path} 없음. 기본 인덱스로 진행하나, 반드시 수작업 필요")
 
@@ -118,7 +119,7 @@ def main(mode="normal"):
                 drawer = ['404(B)', indices["fb"]]
                 indices["fb"] += 1
         elif std[2] == '역사관(평상)':
-            drawer = ['국산', indices["ys"]]
+            drawer = ['서암', indices["ys"]]
             indices["ys"] += 1
         elif std[2] == '국산(칸막이)':
             drawer = ['국산', indices["gs"]]
