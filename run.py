@@ -1,9 +1,19 @@
 import hashlib
 import argparse
-import subprocess
 
 import check_input
-import test
+import seat
+import locker
+from config import load_config
+
+
+def print_file_hash(label, filepath):
+    """파일 경로와 SHA256 해시를 출력합니다 (무결성 검증용)."""
+    print(f"[***]{label} 경로 : {filepath}")
+    with open(filepath, "rb") as f:
+        data = f.read()
+    print(f"[***]{label} 해시(SHA256) : {hashlib.sha256(data).hexdigest()}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -13,39 +23,31 @@ if __name__ == "__main__":
                         help="추가된 데이터 개수 검증용")
     args = parser.parse_args()
 
-    # input_data.csv 해시값 출력
-    print("[***]입력값 경로 : ./input/input_data.csv")
-    with open("./input/input_data.csv", "rb") as f:
-        data = f.read()
-    print("[***]입력값 해시(SHA256) : " + hashlib.sha256(data).hexdigest())
+    config = load_config()
+    paths = config['paths']
+    mode = args.mode or "normal"
+
+    # 입력값 해시 출력
+    print_file_hash("입력값", paths['input_students'])
 
     # 입력 데이터 검증
-    check_input.main()
+    check_input.main(config)
 
-    # 좌석 배정 (seat.py)
-    seat_cmd = ["python", "seat.py"]
-    if args.mode:
-        seat_cmd += ["--mode", args.mode]
-    if args.expected:
-        seat_cmd += ["--expected", str(args.expected)]
-    subprocess.run(seat_cmd, check=True)
+    # 좌석 배정
+    if mode == "normal":
+        seat.main()
+    else:
+        seat.main_additional(
+            paths['input_students'],
+            paths['output_result'],
+            paths['output_unmatched_seats'],
+            expected=args.expected)
 
-    # 사물함 배정 (drawer.py)
-    drawer_cmd = ["python", "drawer.py"]
-    if args.mode:
-        drawer_cmd += ["--mode", args.mode]
-    subprocess.run(drawer_cmd, check=True)
+    # 사물함 배정
+    locker.main(mode=mode)
 
-    # 불변 검증용 input_data.csv 해시값 출력
-    print("[***]입력값 경로 : ./input/input_data.csv")
-    with open("./input/input_data.csv", "rb") as f:
-        data = f.read()
-    print("[***]입력값 해시(SHA256) : " + hashlib.sha256(data).hexdigest())
+    # 불변 검증용 입력값 해시 재출력
+    print_file_hash("입력값", paths['input_students'])
 
-    # seat_drawer_result.csv 해시값 출력
-    print("[***]출력값 경로 : ./output/seat_drawer_result.csv")
-    with open("./output/seat_drawer_result.csv", "rb") as f:
-        data = f.read()
-    print("[***]출력값 해시(SHA256) : " + hashlib.sha256(data).hexdigest())
-
-    # test.main()
+    # 출력값 해시 출력
+    print_file_hash("출력값", paths['output_locker_result'])

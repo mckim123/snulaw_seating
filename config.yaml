@@ -1,0 +1,147 @@
+# 이 파일만 수정하여 배정 로직을 변경할 수 있습니다.
+# 주의: YAML 형식에 맞게 들여쓰기(스페이스 2칸)를 정확히 지켜주세요.
+
+# ------------------------------------------------------------
+# 허용되는 값 목록 (검증용)
+# seatlist.csv와 input_data.csv를 읽을 때, 여기에 없는 값이 나오면 오류를 발생시킵니다.
+# config 내부의 phases, locker_mapping 등도 이 목록과 교차 검증합니다.
+# ------------------------------------------------------------
+valid_rooms:
+  - "법오 골방(칸막이)"
+  - "법오 큰방(평상)"
+  - "법오 큰방(칸막이)"
+  - "법오 작은방(평상)"
+  - "15동 401호(평상)"
+  - "15동 401호(칸막이)"
+  - "15동 403호(평상)"
+  - "15동 403호(칸막이)"
+  - "15동 404호(칸막이)"
+  - "국산(칸막이)"
+
+valid_student_types:
+  - "1학년"
+  - "2학년"
+  - "3학년"
+  - "수료생"
+  - "졸업생"
+
+valid_seat_types:
+  - "2학년"
+  - "3학년"
+  - "졸업생"
+
+# ------------------------------------------------------------
+# 학년/지위 -> 좌석 유형 매핑
+# 학생의 학년/지위에 따라 우선 배정되는 좌석 유형을 지정합니다.
+# ------------------------------------------------------------
+grade_to_seat_type:
+  "3학년": "3학년"
+  "수료생": "3학년"
+  "졸업생": "졸업생"
+  "1학년": "2학년"
+  "2학년": "2학년"
+
+# ------------------------------------------------------------
+# 노트북 사용 불가 열람실
+# ------------------------------------------------------------
+laptop_not_allowed_zones:
+  - "15동 401호(평상)"
+  - "15동 401호(칸막이)"
+
+# ------------------------------------------------------------
+# 좌석 배정 단계 (phases)
+# 각 단계는 순서대로 실행됩니다.
+#   name: 단계 이름
+#   type: "preference" (1~3지망 순차 매칭) 또는 "unmatched" (잔여석 랜덤 배정)
+#   student_types: 배정 대상 학년 리스트 (비어있으면 전체 학생)
+#   seat_types: 배정 가능 좌석 유형 리스트 (비어있으면 전체 좌석)
+# ------------------------------------------------------------
+phases:
+  - name: "3학년 배정"
+    type: "preference"
+    student_types: ["3학년", "수료생"]
+    seat_types: ["3학년"]
+
+  - name: "3학년+졸업생 배정"
+    type: "preference"
+    student_types: ["3학년", "수료생", "졸업생"]
+    seat_types: ["3학년", "졸업생"]
+
+  - name: "전체 학생 배정"
+    type: "preference"
+    student_types: []
+    seat_types: ["3학년", "졸업생", "2학년"]
+
+  - name: "잔여석 배정"
+    type: "unmatched"
+
+# 추가 배정(--mode=add) 시 사용할 단계 인덱스 (0부터 시작)
+add_mode_phase_indices: [2, 3]
+
+# ------------------------------------------------------------
+# 사물함(locker) 매핑
+# 각 열람실이 어떤 사물함 위치의 어떤 번호 범위에 배정되는지 정의합니다.
+#
+# lockers: 사물함 위치 리스트 (순서대로 채움, 첫 번째가 가득 차면 다음으로 overflow)
+#   location: 사물함 위치 이름 (최종 결과에 표시됨)
+#   start: 시작 번호
+#   end: 마지막 번호 (inclusive)
+# ------------------------------------------------------------
+locker_mapping:
+  "법오 골방(칸막이)":
+    lockers:
+      - { location: "법오 큰방", start: 53, end: 64 }
+
+  "법오 큰방(평상)":
+    lockers:
+      - { location: "법오 큰방", start: 65, end: 96 }
+
+  "법오 큰방(칸막이)":
+    lockers:
+      - { location: "법오 큰방", start: 97, end: 348 }
+
+  "법오 작은방(평상)":
+    lockers:
+      - { location: "법오 작은방", start: 1, end: 52 }
+
+  "15동 401호(평상)":
+    lockers:
+      - { location: "404(A)", start: 1, end: 4 }
+      - { location: "404(A)", start: 6, end: 25 }
+      - { location: "403", start: 1, end: 18 }
+
+  "15동 401호(칸막이)":
+    lockers:
+      - { location: "404(A)", start: 26, end: 41 }
+
+  "15동 403호(평상)":
+    lockers:
+      - { location: "403", start: 42, end: 49 }
+
+  "15동 403호(칸막이)":
+    lockers:
+      - { location: "403", start: 50, end: 59 }
+
+  "15동 404호(칸막이)":
+    lockers:
+      - { location: "404(A)", start: 60, end: 66 }
+      - { location: "404(B)", start: 1, end: 150 }
+
+  "국산(칸막이)":
+    lockers:
+      - { location: "국산", start: 81, end: 162 }
+
+# ------------------------------------------------------------
+# 파일 경로 설정
+# ------------------------------------------------------------
+paths:
+  input_students: "./input/input_data.csv"
+  input_seats: "./input/seatlist.csv"
+  output_result: "./output/seat_result.csv"
+  output_unmatched_students: "./output/seat_unmatched_student.csv"
+  output_unmatched_seats: "./output/seat_unmatched_seat.csv"
+  output_locker_result: "./output/seat_locker_result.csv"
+  output_locker_result_xlsx: "./output/seat_locker_result.xlsx"
+  output_result_additional: "./output/seat_result_additional.csv"
+  output_locker_result_additional: "./output/seat_locker_result_additional.csv"
+  output_locker_result_additional_xlsx: "./output/seat_locker_result_additional.xlsx"
